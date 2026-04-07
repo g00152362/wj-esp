@@ -1,19 +1,40 @@
-tmp/
-components/
-managed_components/
+# ESP-IDF 生成目录
 build/
-.vscode/
-.devcontainer/
-sdkconfig.old
+dist/
 sdkconfig
-dependencies.lock
-.env
-releases/
-main/assets/lang_config.h
-main/mmap_generate_emoji.h
-.DS_Store
-.cache
-main/mmap_generate_emoji.h
-*.pyc
+sdkconfig.old
+sdkconfig.cmake
+sdkconfig.h
+CMakeCache.txt
+generated/
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 日志与临时文件
+*.log
+*.bak
+tmp/
+temp/
+
+# 编译产物
+*.o
+*.elf
 *.bin
-mmap_generate_*.h
+*.map
+*.hex
+*.exe
+*.out
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 配置与密钥
+secrets.h
+secret.json
+config.local.h

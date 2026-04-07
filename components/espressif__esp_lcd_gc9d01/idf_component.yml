@@ -1,0 +1,5 @@
+dependencies:
+  cmake_utilities: 0.*
+  idf: '>=4.4'
+description: ESP LCD GC9D01
+version: 1.0.0
