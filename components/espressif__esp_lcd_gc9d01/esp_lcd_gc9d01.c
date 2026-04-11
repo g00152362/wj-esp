@@ -233,26 +233,8 @@ static esp_err_t panel_gc9d01_init(esp_lcd_panel_t *panel)
         init_cmds_size = sizeof(vendor_specific_init_default) / sizeof(gc9d01_lcd_init_cmd_t);
     }
 
-    bool is_cmd_overwritten = false;
+    // bool is_cmd_overwritten = false;
     for (int i = 0; i < init_cmds_size; i++) {
-        // switch (init_cmds[i].cmd) {
-        // case LCD_CMD_MADCTL:
-        //     is_cmd_overwritten = true;
-        //     gc9d01->madctl_val = ((uint8_t *)init_cmds[i].data)[0];
-        //     break;
-        // case LCD_CMD_COLMOD:
-        //     is_cmd_overwritten = true;
-        //     gc9d01->colmod_val = ((uint8_t *)init_cmds[i].data)[0];
-        //     break;
-        // default:
-        //     is_cmd_overwritten = false;
-        //     break;
-        // }
-
-        // if (is_cmd_overwritten) {
-        //     ESP_LOGW(TAG, "The %02Xh command has been used and will be overwritten by external initialization sequence", init_cmds[i].cmd);
-        // }
-
         ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, init_cmds[i].cmd, init_cmds[i].data, init_cmds[i].data_bytes), TAG, "send command failed");
         vTaskDelay(pdMS_TO_TICKS(init_cmds[i].delay_ms));
     }

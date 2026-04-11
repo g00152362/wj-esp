@@ -35,17 +35,19 @@
 
 #define TAG "AIToy_audio_board"
 
-class CustomBoard : public WifiBoard {
+class CustomBoard : public WifiBoard
+{
 private:
     Button boot_button_;
     i2c_master_bus_handle_t i2c_bus_;
     esp_io_expander_handle_t io_expander = NULL;
-    EyeDisplay* left_eye_;
-    EyeDisplay* right_eye_;
+    EyeDisplay *left_eye_;
+    EyeDisplay *right_eye_;
     DisplayManager display_manager_;
     bool gif_mode_ = false;
 
-    void InitializeI2c() {
+    void InitializeI2c()
+    {
         i2c_master_bus_config_t i2c_bus_cfg = {
             .i2c_port = (i2c_port_t)0,
             .sda_io_num = I2C_SDA_IO,
@@ -55,7 +57,8 @@ private:
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
     }
 
-    void InitializeSpi() {
+    void InitializeSpi()
+    {
         spi_bus_config_t buscfg = {};
         buscfg.mosi_io_num = DISPLAY_MOSI_PIN;
         buscfg.miso_io_num = DISPLAY_MISO_PIN;
@@ -66,17 +69,22 @@ private:
         ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
     }
 
-    void InitializeSdCard() {
-        if (SdCardInit() && SdCardHasGifs()) {
+    void InitializeSdCard()
+    {
+        if (SdCardInit() && SdCardHasGifs())
+        {
             gif_mode_ = true;
             ESP_LOGI(TAG, "SD card with GIF files detected, using GIF eye mode");
-        } else {
+        }
+        else
+        {
             gif_mode_ = false;
             ESP_LOGI(TAG, "No SD card or GIF files, using LVGL eye mode");
         }
     }
 
-    void InitializeLcdDisplay() {
+    void InitializeLcdDisplay()
+    {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
 
@@ -95,11 +103,11 @@ private:
         panel_config.rgb_ele_order = DISPLAY_RGB_ORDER;
         panel_config.bits_per_pixel = 16;
         // panel_config.rgb_ele_order = LCD_RGB_ENDIAN_BGR;
-                panel_config.flags.reset_active_high = 0;   // 这里必须是 0！！！
+        panel_config.flags.reset_active_high = 0; // 这里必须是 0！！！
         ESP_ERROR_CHECK(esp_lcd_new_panel_gc9d01(panel_io, &panel_config, &panel));
 
         esp_lcd_panel_reset(panel);
-        vTaskDelay(pdMS_TO_TICKS(120));  // 必须等！
+        vTaskDelay(pdMS_TO_TICKS(120)); // 必须等！
         esp_lcd_panel_init(panel);
 
         esp_lcd_panel_invert_color(panel, DISPLAY_INVERT_COLOR);
@@ -112,7 +120,8 @@ private:
                                    EyeSide::LEFT, gif_mode_);
     }
 
-    void InitializeLcdDisplay_2() {
+    void InitializeLcdDisplay_2()
+    {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
 
@@ -130,13 +139,13 @@ private:
         panel_config.reset_gpio_num = DISPLAY2_RESET_PIN;
         panel_config.rgb_ele_order = DISPLAY_RGB_ORDER;
         panel_config.bits_per_pixel = 16;
-        panel_config.flags.reset_active_high = 0;  // 这里必须是 0！！！
+        panel_config.flags.reset_active_high = 0; // 这里必须是 0！！！
         ESP_ERROR_CHECK(esp_lcd_new_panel_gc9d01(panel_io, &panel_config, &panel));
 
         esp_lcd_panel_reset(panel);
-        vTaskDelay(pdMS_TO_TICKS(120));  // 必须等！
+        vTaskDelay(pdMS_TO_TICKS(120)); // 必须等！
         esp_lcd_panel_init(panel);
-       
+
         esp_lcd_panel_invert_color(panel, DISPLAY_INVERT_COLOR);
         esp_lcd_panel_swap_xy(panel, DISPLAY2_SWAP_XY);
         esp_lcd_panel_mirror(panel, DISPLAY2_MIRROR_X, DISPLAY2_MIRROR_Y);
@@ -147,24 +156,49 @@ private:
                                     EyeSide::RIGHT, gif_mode_);
     }
 
-    void InitializeButtons() {
-        boot_button_.OnClick([this]() {
+    void InitializeButtons()
+    {
+        boot_button_.OnClick([this]()
+                             {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
-        });
+            app.ToggleChatState(); });
     }
+    void InitializeMotors()
+    {
 
+        gpio_config_t cfg = {
+            .pin_bit_mask = 1ULL << MOTOR_CONTROL1,
+            .mode = GPIO_MODE_OUTPUT, // 输出
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&cfg);
+        gpio_set_level(MOTOR_CONTROL1, 1); // 拉高
+        // gpio_config_t cfg1 = {
+        //     .pin_bit_mask = 1ULL << MOTOR_CONTROL2,
+        //     .mode = GPIO_MODE_OUTPUT, // 输出
+        //     .pull_up_en = GPIO_PULLUP_DISABLE,
+        //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        //     .intr_type = GPIO_INTR_DISABLE,
+        // };
+        // gpio_config(&cfg1);
+        // gpio_set_level(MOTOR_CONTROL2, 1); // 拉高
+    }
 #ifdef CONFIG_USE_BLE_DATA_SERVICE
     bool ble_active_ = false;
 
-    void StartBle() {
-        if (ble_active_) return;
+    void StartBle()
+    {
+        if (ble_active_)
+            return;
 
-        auto& ble = BleDataService::GetInstance();
-        ble.SetOnReceive([](const uint8_t* data, size_t len) {
+        auto &ble = BleDataService::GetInstance();
+        ble.SetOnReceive([](const uint8_t *data, size_t len)
+                         {
             ESP_LOGI(TAG, "BLE received %d bytes", (int)len);
 
             std::string json_str(reinterpret_cast<const char*>(data), len);
@@ -223,17 +257,15 @@ private:
                 ESP_LOGW(TAG, "BLE: unknown type '%s'", type->valuestring);
             }
 
-            cJSON_Delete(root);
-        });
-        ble.SetOnConnect([](uint16_t conn_handle) {
-            ESP_LOGI(TAG, "BLE client connected, handle=%d", conn_handle);
-        });
-        ble.SetOnDisconnect([](uint16_t conn_handle, int reason) {
-            ESP_LOGI(TAG, "BLE client disconnected, handle=%d, reason=%d", conn_handle, reason);
-        });
+            cJSON_Delete(root); });
+        ble.SetOnConnect([](uint16_t conn_handle)
+                         { ESP_LOGI(TAG, "BLE client connected, handle=%d", conn_handle); });
+        ble.SetOnDisconnect([](uint16_t conn_handle, int reason)
+                            { ESP_LOGI(TAG, "BLE client disconnected, handle=%d, reason=%d", conn_handle, reason); });
 
         esp_err_t ret = ble.Init();
-        if (ret != ESP_OK) {
+        if (ret != ESP_OK)
+        {
             ESP_LOGE(TAG, "Failed to start BLE: %s", esp_err_to_name(ret));
             return;
         }
@@ -241,30 +273,35 @@ private:
         ESP_LOGI(TAG, "BLE started (device idle)");
     }
 
-    void StopBle() {
-        if (!ble_active_) return;
+    void StopBle()
+    {
+        if (!ble_active_)
+            return;
 
         BleDataService::GetInstance().Deinit();
         ble_active_ = false;
         ESP_LOGI(TAG, "BLE stopped (entering listening)");
     }
 
-    void RegisterBleStateCallback() {
+    void RegisterBleStateCallback()
+    {
         DeviceStateEventManager::GetInstance().RegisterStateChangeCallback(
-            [this](DeviceState prev, DeviceState current) {
-                switch (current) {
-                    case kDeviceStateIdle:
-                    case kDeviceStateStarting:
-                    case kDeviceStateWifiConfiguring:
-                        StartBle();
-                        break;
-                    case kDeviceStateListening:
-                    case kDeviceStateConnecting:
-                    case kDeviceStateSpeaking:
-                        StopBle();
-                        break;
-                    default:
-                        break;
+            [this](DeviceState prev, DeviceState current)
+            {
+                switch (current)
+                {
+                case kDeviceStateIdle:
+                case kDeviceStateStarting:
+                case kDeviceStateWifiConfiguring:
+                    StartBle();
+                    break;
+                case kDeviceStateListening:
+                case kDeviceStateConnecting:
+                case kDeviceStateSpeaking:
+                    StopBle();
+                    break;
+                default:
+                    break;
                 }
             });
         ESP_LOGI(TAG, "BLE state callback registered");
@@ -272,24 +309,29 @@ private:
 #endif
 
 public:
-    CustomBoard() :
-        boot_button_(BOOT_BUTTON_GPIO) {
+    CustomBoard() : boot_button_(BOOT_BUTTON_GPIO)
+    {
         InitializeI2c();
         InitializeSpi();
         InitializeSdCard();
         InitializeLcdDisplay();
         InitializeLcdDisplay_2();
+        InitializeMotors();
         InitializeButtons();
         GetBacklight()->RestoreBrightness();
         GetBacklight2()->RestoreBrightness();
-        if (gif_mode_) {
+        if (gif_mode_)
+        {
             left_eye_->SetPairDisplay(right_eye_);
-            if (lvgl_port_lock(0)) {
+            if (lvgl_port_lock(0))
+            {
                 left_eye_->LoadInitialGif();
                 right_eye_->LoadInitialGif();
                 lvgl_port_unlock();
             }
-        } else {
+        }
+        else
+        {
             EyeAnimator::GetInstance().Init(left_eye_, right_eye_);
             EyeAnimator::GetInstance().Start();
         }
@@ -298,28 +340,32 @@ public:
         DisplayManager::AddDisplay(right_eye_, false);
 
 #ifdef CONFIG_USE_BLE_DATA_SERVICE
-        StartBle();
+        // StartBle();  //多次重启会死机，这个需要调试，重新梳理流程
         RegisterBleStateCallback();
 #endif
     }
 
-    virtual AudioCodec* GetAudioCodec() override {
+    virtual AudioCodec *GetAudioCodec() override
+    {
         static BoxAudioCodec audio_codec(i2c_bus_, AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, AUDIO_CODEC_ES8311_ADDR, AUDIO_CODEC_ES7210_ADDR, AUDIO_INPUT_REFERENCE);
+                                         AUDIO_I2S_GPIO_MCLK, AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS, AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
+                                         AUDIO_CODEC_PA_PIN, AUDIO_CODEC_ES8311_ADDR, AUDIO_CODEC_ES7210_ADDR, AUDIO_INPUT_REFERENCE);
         return &audio_codec;
     }
 
-    virtual Display* GetDisplay() override {
+    virtual Display *GetDisplay() override
+    {
         return &display_manager_;
     }
 
-    virtual Backlight* GetBacklight() override {
+    virtual Backlight *GetBacklight() override
+    {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;
     }
 
-    Backlight* GetBacklight2() {
+    Backlight *GetBacklight2()
+    {
         static PwmBacklight backlight(DISPLAY2_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;
     }
