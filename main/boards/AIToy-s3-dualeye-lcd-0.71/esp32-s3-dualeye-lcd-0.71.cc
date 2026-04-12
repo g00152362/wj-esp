@@ -309,7 +309,7 @@ private:
 #endif
 
 public:
-    CustomBoard() : boot_button_(BOOT_BUTTON_GPIO)
+    CustomBoard() : WifiBoard(ProvisioningMode::Ble), boot_button_(BOOT_BUTTON_GPIO)
     {
         InitializeI2c();
         InitializeSpi();

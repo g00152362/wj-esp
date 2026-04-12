@@ -19,7 +19,8 @@
 
 static const char *TAG = "WifiBoard";
 
-WifiBoard::WifiBoard() {
+WifiBoard::WifiBoard(ProvisioningMode provisioning_mode)
+    : provisioning_mode_(provisioning_mode) {
     Settings settings("wifi", true);
     wifi_config_mode_ = settings.GetInt("force_ap") == 1;
     if (wifi_config_mode_) {
