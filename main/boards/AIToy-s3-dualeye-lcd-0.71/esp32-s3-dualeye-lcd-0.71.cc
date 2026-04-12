@@ -9,15 +9,6 @@
 #include "button.h"
 #include "config.h"
 
-#ifdef CONFIG_USE_BLE_DATA_SERVICE
-#include "ble_data_service.h"
-#include "esp_bt.h"
-#include "device_state_event.h"
-#include <cJSON.h>
-#include "system_info.h"
-#include <ssid_manager.h>
-#endif
-
 #include <esp_log.h>
 #include "i2c_device.h"
 #include <driver/i2c.h>
@@ -188,126 +179,6 @@ private:
         // gpio_config(&cfg1);
         // gpio_set_level(MOTOR_CONTROL2, 1); // 拉高
     }
-#ifdef CONFIG_USE_BLE_DATA_SERVICE
-    bool ble_active_ = false;
-
-    void StartBle()
-    {
-        if (ble_active_)
-            return;
-
-        auto &ble = BleDataService::GetInstance();
-        ble.SetOnReceive([](const uint8_t *data, size_t len)
-                         {
-            ESP_LOGI(TAG, "BLE received %d bytes", (int)len);
-
-            std::string json_str(reinterpret_cast<const char*>(data), len);
-            cJSON* root = cJSON_Parse(json_str.c_str());
-            if (!root) {
-                ESP_LOGW(TAG, "BLE: invalid JSON");
-                return;
-            }
-
-            cJSON* type = cJSON_GetObjectItem(root, "type");
-            if (!cJSON_IsString(type)) {
-                ESP_LOGW(TAG, "BLE: missing 'type' field");
-                cJSON_Delete(root);
-                return;
-            }
-
-            auto& ble_svc = BleDataService::GetInstance();
-
-            if (strcmp(type->valuestring, "read") == 0) {
-                std::string mac = SystemInfo::GetMacAddress();
-                cJSON* resp = cJSON_CreateObject();
-                cJSON_AddStringToObject(resp, "macAddress", mac.c_str());
-                char* resp_str = cJSON_PrintUnformatted(resp);
-                ESP_LOGI(TAG, "BLE reply: %s", resp_str);
-                ble_svc.Notify(reinterpret_cast<const uint8_t*>(resp_str),
-                               strlen(resp_str));
-                cJSON_free(resp_str);
-                cJSON_Delete(resp);
-
-            } else if (strcmp(type->valuestring, "write") == 0) {
-                cJSON* ssid = cJSON_GetObjectItem(root, "ssid");
-                cJSON* pwd  = cJSON_GetObjectItem(root, "pwd");
-                if (!cJSON_IsString(ssid) || !cJSON_IsString(pwd)) {
-                    ESP_LOGW(TAG, "BLE write: missing ssid/pwd");
-                    cJSON_Delete(root);
-                    return;
-                }
-
-                ESP_LOGI(TAG, "BLE WiFi config: ssid=%s", ssid->valuestring);
-                auto& ssid_mgr = SsidManager::GetInstance();
-                ssid_mgr.AddSsid(ssid->valuestring, pwd->valuestring);
-
-                cJSON* resp = cJSON_CreateObject();
-                cJSON_AddStringToObject(resp, "status", "ok");
-                char* resp_str = cJSON_PrintUnformatted(resp);
-                ble_svc.Notify(reinterpret_cast<const uint8_t*>(resp_str),
-                               strlen(resp_str));
-                cJSON_free(resp_str);
-                cJSON_Delete(resp);
-
-                ESP_LOGI(TAG, "WiFi credentials saved, rebooting in 1s...");
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                esp_restart();
-
-            } else {
-                ESP_LOGW(TAG, "BLE: unknown type '%s'", type->valuestring);
-            }
-
-            cJSON_Delete(root); });
-        ble.SetOnConnect([](uint16_t conn_handle)
-                         { ESP_LOGI(TAG, "BLE client connected, handle=%d", conn_handle); });
-        ble.SetOnDisconnect([](uint16_t conn_handle, int reason)
-                            { ESP_LOGI(TAG, "BLE client disconnected, handle=%d, reason=%d", conn_handle, reason); });
-
-        esp_err_t ret = ble.Init();
-        if (ret != ESP_OK)
-        {
-            ESP_LOGE(TAG, "Failed to start BLE: %s", esp_err_to_name(ret));
-            return;
-        }
-        ble_active_ = true;
-        ESP_LOGI(TAG, "BLE started (device idle)");
-    }
-
-    void StopBle()
-    {
-        if (!ble_active_)
-            return;
-
-        BleDataService::GetInstance().Deinit();
-        ble_active_ = false;
-        ESP_LOGI(TAG, "BLE stopped (entering listening)");
-    }
-
-    void RegisterBleStateCallback()
-    {
-        DeviceStateEventManager::GetInstance().RegisterStateChangeCallback(
-            [this](DeviceState prev, DeviceState current)
-            {
-                switch (current)
-                {
-                case kDeviceStateIdle:
-                case kDeviceStateStarting:
-                case kDeviceStateWifiConfiguring:
-                    StartBle();
-                    break;
-                case kDeviceStateListening:
-                case kDeviceStateConnecting:
-                case kDeviceStateSpeaking:
-                    StopBle();
-                    break;
-                default:
-                    break;
-                }
-            });
-        ESP_LOGI(TAG, "BLE state callback registered");
-    }
-#endif
-
 public:
     CustomBoard() : WifiBoard(ProvisioningMode::Ble), boot_button_(BOOT_BUTTON_GPIO)
     {
@@ -338,11 +209,6 @@ public:
 
         DisplayManager::AddDisplay(left_eye_, true);
         DisplayManager::AddDisplay(right_eye_, false);
-
-#ifdef CONFIG_USE_BLE_DATA_SERVICE
-        // StartBle();  //多次重启会死机，这个需要调试，重新梳理流程
-        RegisterBleStateCallback();
-#endif
     }
 
     virtual AudioCodec *GetAudioCodec() override
