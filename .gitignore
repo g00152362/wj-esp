@@ -38,3 +38,4 @@ Thumbs.db
 secrets.h
 secret.json
 config.local.h
+.worktrees/
