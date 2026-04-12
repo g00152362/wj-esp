@@ -12,7 +12,8 @@ class WifiBoard : public Board {
 protected:
     bool wifi_config_mode_ = false;
     ProvisioningMode provisioning_mode_ = ProvisioningMode::WifiAp;
-    void EnterWifiConfigMode();
+    void EnterProvisioningMode();
+    void EnterWifiApProvisioningMode();
     virtual std::string GetBoardJson() override;
 
 public:

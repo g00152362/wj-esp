@@ -33,7 +33,16 @@ std::string WifiBoard::GetBoardType() {
     return "wifi";
 }
 
-void WifiBoard::EnterWifiConfigMode() {
+void WifiBoard::EnterProvisioningMode() {
+    switch (provisioning_mode_) {
+    case ProvisioningMode::WifiAp:
+    default:
+        EnterWifiApProvisioningMode();
+        break;
+    }
+}
+
+void WifiBoard::EnterWifiApProvisioningMode() {
     auto& application = Application::GetInstance();
     application.SetDeviceState(kDeviceStateWifiConfiguring);
 
@@ -72,7 +81,7 @@ void WifiBoard::EnterWifiConfigMode() {
 void WifiBoard::StartNetwork() {
     // User can press BOOT button while starting to enter WiFi configuration mode
     if (wifi_config_mode_) {
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 
@@ -81,7 +90,7 @@ void WifiBoard::StartNetwork() {
     auto ssid_list = ssid_manager.GetSsidList();
     if (ssid_list.empty()) {
         wifi_config_mode_ = true;
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 
@@ -109,7 +118,7 @@ void WifiBoard::StartNetwork() {
     if (!wifi_station.WaitForConnected(60 * 1000)) {
         wifi_station.Stop();
         wifi_config_mode_ = true;
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 }
@@ -160,14 +169,13 @@ void WifiBoard::SetPowerSaveMode(bool enabled) {
 }
 
 void WifiBoard::ResetWifiConfiguration() {
-    // Set a flag and reboot the device to enter the network configuration mode
+    // Set a flag and reboot the device to force provisioning on the next boot.
     {
         Settings settings("wifi", true);
         settings.SetInt("force_ap", 1);
     }
     GetDisplay()->ShowNotification(Lang::Strings::ENTERING_WIFI_CONFIG_MODE);
     vTaskDelay(pdMS_TO_TICKS(1000));
-    // Reboot the device
     esp_restart();
 }
 
