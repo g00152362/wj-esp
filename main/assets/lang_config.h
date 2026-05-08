@@ -37,6 +37,7 @@ namespace Lang {
         constexpr const char* MAX_VOLUME = "最大音量";
         constexpr const char* MUTED = "已静音";
         constexpr const char* NEW_VERSION = "新版本 ";
+        constexpr const char* NO_NETWORK = "无网络";
         constexpr const char* OTA_UPGRADE = "OTA 升级";
         constexpr const char* PIN_ERROR = "请插入 SIM 卡";
         constexpr const char* REGISTERING_NETWORK = "等待网络...";
@@ -58,6 +59,7 @@ namespace Lang {
         constexpr const char* VOLUME = "音量 ";
         constexpr const char* WARNING = "警告";
         constexpr const char* WIFI_CONFIG_MODE = "配网模式";
+        constexpr const char* WIFI_CONNECTED = "网络已连接";
     }
 
     // 音效资源 (en-US as fallback for missing audio files)
@@ -168,6 +170,13 @@ namespace Lang {
         static_cast<size_t>(ogg_low_battery_end - ogg_low_battery_start)
         };
 
+        extern const char ogg_no_network_start[] asm("_binary_no_network_ogg_start");
+        extern const char ogg_no_network_end[] asm("_binary_no_network_ogg_end");
+        static const std::string_view OGG_NO_NETWORK {
+        static_cast<const char*>(ogg_no_network_start),
+        static_cast<size_t>(ogg_no_network_end - ogg_no_network_start)
+        };
+
         extern const char ogg_popup_start[] asm("_binary_popup_ogg_start");
         extern const char ogg_popup_end[] asm("_binary_popup_ogg_end");
         static const std::string_view OGG_POPUP {
@@ -201,6 +210,13 @@ namespace Lang {
         static const std::string_view OGG_WELCOME {
         static_cast<const char*>(ogg_welcome_start),
         static_cast<size_t>(ogg_welcome_end - ogg_welcome_start)
+        };
+
+        extern const char ogg_wifi_connected_start[] asm("_binary_wifi_connected_ogg_start");
+        extern const char ogg_wifi_connected_end[] asm("_binary_wifi_connected_ogg_end");
+        static const std::string_view OGG_WIFI_CONNECTED {
+        static_cast<const char*>(ogg_wifi_connected_start),
+        static_cast<size_t>(ogg_wifi_connected_end - ogg_wifi_connected_start)
         };
 
         extern const char ogg_wificonfig_start[] asm("_binary_wificonfig_ogg_start");

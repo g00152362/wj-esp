@@ -37,6 +37,8 @@
         "WIFI_CONFIG_MODE": "Wi-Fi Configuration Mode",
         "ENTERING_WIFI_CONFIG_MODE": "Entering Wi-Fi configuration mode...",
         "SCANNING_WIFI": "Scanning Wi-Fi...",
+        "NO_NETWORK": "No network",
+        "WIFI_CONNECTED": "Wi-Fi connected",
 
         "NEW_VERSION": "New version ",
         "OTA_UPGRADE": "OTA Upgrade",
