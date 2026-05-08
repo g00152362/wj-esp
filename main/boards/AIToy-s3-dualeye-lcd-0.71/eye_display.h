@@ -27,6 +27,8 @@ public:
                EyeSide side,
                bool gif_mode = false);
 
+    void ShowFullScreenIcon(const char* icon_text);
+    void HideFullScreenIcon();
     void SetEmotion(const char* emotion) override;
     void SetStatus(const char* status) override;
     void SetChatMessage(const char* role, const char* content) override {}
@@ -52,7 +54,7 @@ public:
     bool IsGifMode() const { return gif_mode_; }
     lv_obj_t* GetGifObj() { return gif_obj_; }
     void SetPairDisplay(EyeDisplay* pair) { pair_ = pair; }
-    esp_lcd_panel_handle_t GetPanel() { return panel_; }
+
 protected:
     bool Lock(int timeout_ms = 0) override;
     void Unlock() override;
@@ -74,10 +76,12 @@ private:
     lv_obj_t* decor2_ = nullptr;
 
     lv_obj_t* gif_obj_ = nullptr;
+    lv_obj_t* fullscreen_icon_ = nullptr;
     EyeDisplay* pair_ = nullptr;
 
     void CreateEyeObjects();
     void CreateGifObjects();
+    void SetObjectHidden(lv_obj_t* obj, bool hidden);
 public:
     void LoadInitialGif();
 };

@@ -34,6 +34,18 @@ void EyeAnimator::Start() {
     xTaskCreate(TaskEntry, "eye_anim", 5120, this, 2, &task_);
 }
 
+void EyeAnimator::Pause() {
+    xSemaphoreTake(mutex_, portMAX_DELAY);
+    paused_ = true;
+    xSemaphoreGive(mutex_);
+}
+
+void EyeAnimator::Resume() {
+    xSemaphoreTake(mutex_, portMAX_DELAY);
+    paused_ = false;
+    xSemaphoreGive(mutex_);
+}
+
 void EyeAnimator::SetEmotion(const std::string& emotion) {
     xSemaphoreTake(mutex_, portMAX_DELAY);
     target_emotion_ = emotion;
@@ -297,9 +309,9 @@ void EyeAnimator::ApplyToDisplay(EyeDisplay* eye, const EmotionParams& ep,
                                   float gaze_x, float gaze_y, float pupil_scale,
                                   float eyebrow_angle, float eyebrow_y,
                                   float sclera_h, float decor_bob) {
-            
     bool is_right = (eye->GetSide() == EyeSide::RIGHT);
     float flip = is_right ? -1.0f : 1.0f;
+
     if (is_right) {
         gaze_x = -gaze_x;
         gaze_y = -gaze_y;
@@ -360,11 +372,18 @@ void EyeAnimator::Run() {
 
         std::string emotion;
         EyeAnimState state;
+        bool paused = false;
         {
             xSemaphoreTake(mutex_, portMAX_DELAY);
             emotion = target_emotion_;
             state = target_state_;
+            paused = paused_;
             xSemaphoreGive(mutex_);
+        }
+
+        if (paused) {
+            vTaskDelay(pdMS_TO_TICKS(30));
+            continue;
         }
 
         // Transition blink: trigger a quick blink when emotion changes
