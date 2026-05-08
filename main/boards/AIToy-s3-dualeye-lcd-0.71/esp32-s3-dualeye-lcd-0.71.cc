@@ -165,6 +165,14 @@ private:
                 ResetWifiConfiguration();
             }
             app.ToggleChatState(); });
+
+        boot_button_.OnLongPress([this]()
+                {
+                    ESP_LOGW(TAG, "BOOT 键长按5秒，清除WiFi配置并重启");
+                    ResetWifiConfiguration();  // 清除配网
+                    esp_restart();             // 重启
+                }
+            );            
     }
     void InitializeMotors()
     {
@@ -178,15 +186,15 @@ private:
         };
         gpio_config(&cfg);
         gpio_set_level(MOTOR_CONTROL1, 1); // 拉高
-        // gpio_config_t cfg1 = {
-        //     .pin_bit_mask = 1ULL << MOTOR_CONTROL2,
-        //     .mode = GPIO_MODE_OUTPUT, // 输出
-        //     .pull_up_en = GPIO_PULLUP_DISABLE,
-        //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        //     .intr_type = GPIO_INTR_DISABLE,
-        // };
-        // gpio_config(&cfg1);
-        // gpio_set_level(MOTOR_CONTROL2, 1); // 拉高
+        gpio_config_t cfg1 = {
+            .pin_bit_mask = 1ULL << MOTOR_CONTROL2,
+            .mode = GPIO_MODE_OUTPUT, // 输出
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&cfg1);
+        gpio_set_level(MOTOR_CONTROL2, 1); // 拉高
     }
 #ifdef CONFIG_USE_BLE_DATA_SERVICE
     bool ble_active_ = false;
@@ -309,7 +317,7 @@ private:
 #endif
 
 public:
-    CustomBoard() : boot_button_(BOOT_BUTTON_GPIO)
+    CustomBoard() : WifiBoard(ProvisioningMode::Ble), boot_button_(BOOT_BUTTON_GPIO)
     {
         InitializeI2c();
         InitializeSpi();

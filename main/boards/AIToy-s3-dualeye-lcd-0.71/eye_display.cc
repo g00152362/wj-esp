@@ -19,7 +19,7 @@ EyeDisplay::EyeDisplay(esp_lcd_panel_io_handle_t panel_io,
     width_ = width;
     height_ = height;
 
-    std::vector<uint16_t> buffer(width_, 0x0000);  // Red background for debugging
+    std::vector<uint16_t> buffer(width_, 0x0000);
     for (int y = 0; y < height_; y++) {
         esp_lcd_panel_draw_bitmap(panel_, 0, y, width_, y + 1, buffer.data());
     }
@@ -108,7 +108,7 @@ void EyeDisplay::CreateGifObjects() {
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
 
     gif_obj_ = lv_gif_create(screen);
-    lv_obj_set_size(gif_obj_, 240, 240); //240
+    lv_obj_set_size(gif_obj_, 240, 240);
     lv_obj_align(gif_obj_, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_bg_opa(gif_obj_, LV_OPA_TRANSP, 0);
 }

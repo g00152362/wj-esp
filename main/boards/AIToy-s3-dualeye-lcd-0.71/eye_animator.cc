@@ -297,9 +297,9 @@ void EyeAnimator::ApplyToDisplay(EyeDisplay* eye, const EmotionParams& ep,
                                   float gaze_x, float gaze_y, float pupil_scale,
                                   float eyebrow_angle, float eyebrow_y,
                                   float sclera_h, float decor_bob) {
-            
     bool is_right = (eye->GetSide() == EyeSide::RIGHT);
     float flip = is_right ? -1.0f : 1.0f;
+
     if (is_right) {
         gaze_x = -gaze_x;
         gaze_y = -gaze_y;

@@ -19,7 +19,8 @@
 
 static const char *TAG = "WifiBoard";
 
-WifiBoard::WifiBoard() {
+WifiBoard::WifiBoard(ProvisioningMode provisioning_mode)
+    : provisioning_mode_(provisioning_mode) {
     Settings settings("wifi", true);
     wifi_config_mode_ = settings.GetInt("force_ap") == 1;
     if (wifi_config_mode_) {
@@ -28,11 +29,20 @@ WifiBoard::WifiBoard() {
     }
 }
 
+void WifiBoard::EnterProvisioningMode() {
+    switch (provisioning_mode_) {
+    case ProvisioningMode::WifiAp:
+    default:
+        EnterWifiApProvisioningMode();
+        break;
+    }
+}
+
 std::string WifiBoard::GetBoardType() {
     return "wifi";
 }
 
-void WifiBoard::EnterWifiConfigMode() {
+void WifiBoard::EnterWifiApProvisioningMode() {
     auto& application = Application::GetInstance();
     application.SetDeviceState(kDeviceStateWifiConfiguring);
 
@@ -71,7 +81,7 @@ void WifiBoard::EnterWifiConfigMode() {
 void WifiBoard::StartNetwork() {
     // User can press BOOT button while starting to enter WiFi configuration mode
     if (wifi_config_mode_) {
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 
@@ -80,7 +90,7 @@ void WifiBoard::StartNetwork() {
     auto ssid_list = ssid_manager.GetSsidList();
     if (ssid_list.empty()) {
         wifi_config_mode_ = true;
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 
@@ -108,7 +118,7 @@ void WifiBoard::StartNetwork() {
     if (!wifi_station.WaitForConnected(60 * 1000)) {
         wifi_station.Stop();
         wifi_config_mode_ = true;
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 }

@@ -52,7 +52,7 @@ public:
     bool IsGifMode() const { return gif_mode_; }
     lv_obj_t* GetGifObj() { return gif_obj_; }
     void SetPairDisplay(EyeDisplay* pair) { pair_ = pair; }
-    esp_lcd_panel_handle_t GetPanel() { return panel_; }
+
 protected:
     bool Lock(int timeout_ms = 0) override;
     void Unlock() override;
