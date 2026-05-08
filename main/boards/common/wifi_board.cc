@@ -19,7 +19,8 @@
 
 static const char *TAG = "WifiBoard";
 
-WifiBoard::WifiBoard() {
+WifiBoard::WifiBoard(ProvisioningMode provisioning_mode)
+    : provisioning_mode_(provisioning_mode) {
     Settings settings("wifi", true);
     wifi_config_mode_ = settings.GetInt("force_ap") == 1;
     if (wifi_config_mode_) {
@@ -28,11 +29,20 @@ WifiBoard::WifiBoard() {
     }
 }
 
+void WifiBoard::EnterProvisioningMode() {
+    switch (provisioning_mode_) {
+    case ProvisioningMode::WifiAp:
+    default:
+        EnterWifiApProvisioningMode();
+        break;
+    }
+}
+
 std::string WifiBoard::GetBoardType() {
     return "wifi";
 }
 
-void WifiBoard::EnterWifiConfigMode() {
+void WifiBoard::EnterWifiApProvisioningMode() {
     auto& application = Application::GetInstance();
     application.SetDeviceState(kDeviceStateWifiConfiguring);
 
@@ -68,10 +78,16 @@ void WifiBoard::EnterWifiConfigMode() {
     }
 }
 
+void WifiBoard::ShowNoNetworkPrompt() {
+}
+
+void WifiBoard::HideNoNetworkPrompt() {
+}
+
 void WifiBoard::StartNetwork() {
     // User can press BOOT button while starting to enter WiFi configuration mode
     if (wifi_config_mode_) {
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 
@@ -80,7 +96,7 @@ void WifiBoard::StartNetwork() {
     auto ssid_list = ssid_manager.GetSsidList();
     if (ssid_list.empty()) {
         wifi_config_mode_ = true;
-        EnterWifiConfigMode();
+        EnterProvisioningMode();
         return;
     }
 
@@ -104,11 +120,33 @@ void WifiBoard::StartNetwork() {
     });
     wifi_station.Start();
 
-    // Try to connect to WiFi, if failed, launch the WiFi configuration AP
+    // Try to connect to WiFi, if timeout, prompt and keep retrying until connected
     if (!wifi_station.WaitForConnected(60 * 1000)) {
-        wifi_station.Stop();
-        wifi_config_mode_ = true;
-        EnterWifiConfigMode();
+        ESP_LOGW(TAG, "WiFi connect timed out after 60 seconds");
+        ShowNoNetworkPrompt();
+
+        auto display = Board::GetInstance().GetDisplay();
+        auto& application = Application::GetInstance();
+        display->ShowNotification(Lang::Strings::NO_NETWORK, 30000);
+        application.PlaySound(Lang::Sounds::OGG_NO_NETWORK);
+
+        for (int attempt = 0; attempt < 3; ++attempt) {
+            ESP_LOGI(TAG, "Foreground Wi-Fi retry %d/3", attempt + 1);
+            if (wifi_station.WaitForConnected(30 * 1000)) {
+                HideNoNetworkPrompt();
+                display->ShowNotification(Lang::Strings::WIFI_CONNECTED, 3000);
+                application.PlaySound(Lang::Sounds::OGG_WIFI_CONNECTED);
+                return;
+            }
+        }
+
+        HideNoNetworkPrompt();
+        ESP_LOGW(TAG, "WiFi still disconnected; continue waiting in background");
+        while (!wifi_station.WaitForConnected(30 * 1000)) {
+        }
+
+        display->ShowNotification(Lang::Strings::WIFI_CONNECTED, 3000);
+        application.PlaySound(Lang::Sounds::OGG_WIFI_CONNECTED);
         return;
     }
 }
