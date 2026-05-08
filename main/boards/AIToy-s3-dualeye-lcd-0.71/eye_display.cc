@@ -6,6 +6,8 @@
 #include <vector>
 #include <cstring>
 
+LV_FONT_DECLARE(font_awesome_30_4);
+
 static const char* TAG = "EyeDisplay";
 
 EyeDisplay::EyeDisplay(esp_lcd_panel_io_handle_t panel_io,
@@ -318,6 +320,73 @@ void EyeDisplay::SetDecor2(int x, int y, int w, int h, lv_color_t color, bool vi
     } else {
         lv_obj_add_flag(decor2_, LV_OBJ_FLAG_HIDDEN);
     }
+}
+
+void EyeDisplay::SetObjectHidden(lv_obj_t* obj, bool hidden) {
+    if (!obj) return;
+
+    if (hidden) {
+        lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+void EyeDisplay::ShowFullScreenIcon(const char* icon_text) {
+    if (!icon_text) return;
+    if (!lvgl_port_lock(200)) return;
+
+    auto* screen = lv_display_get_screen_active(display_);
+    SetObjectHidden(sclera_, true);
+    SetObjectHidden(iris_, true);
+    SetObjectHidden(pupil_, true);
+    SetObjectHidden(highlight_, true);
+    SetObjectHidden(eyelid_top_, true);
+    SetObjectHidden(eyelid_bottom_, true);
+    SetObjectHidden(eyebrow_, true);
+    SetObjectHidden(decor_, true);
+    SetObjectHidden(decor2_, true);
+    SetObjectHidden(gif_obj_, true);
+
+    if (!fullscreen_icon_) {
+        fullscreen_icon_ = lv_label_create(screen);
+        lv_obj_set_style_bg_opa(fullscreen_icon_, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_text_color(fullscreen_icon_, lv_color_white(), 0);
+        lv_obj_set_style_text_font(fullscreen_icon_, &font_awesome_30_4, 0);
+    }
+
+    lv_label_set_text(fullscreen_icon_, icon_text);
+    lv_obj_update_layout(fullscreen_icon_);
+    lv_obj_set_style_transform_zoom(fullscreen_icon_, 768, 0);
+    lv_obj_set_style_transform_pivot_x(fullscreen_icon_, lv_obj_get_width(fullscreen_icon_) / 2, 0);
+    lv_obj_set_style_transform_pivot_y(fullscreen_icon_, lv_obj_get_height(fullscreen_icon_) / 2, 0);
+    lv_obj_center(fullscreen_icon_);
+    lv_obj_move_foreground(fullscreen_icon_);
+    lv_obj_remove_flag(fullscreen_icon_, LV_OBJ_FLAG_HIDDEN);
+
+    lvgl_port_unlock();
+}
+
+void EyeDisplay::HideFullScreenIcon() {
+    if (!lvgl_port_lock(200)) return;
+
+    if (fullscreen_icon_) {
+        lv_obj_delete(fullscreen_icon_);
+        fullscreen_icon_ = nullptr;
+    }
+
+    SetObjectHidden(sclera_, false);
+    SetObjectHidden(iris_, false);
+    SetObjectHidden(pupil_, false);
+    SetObjectHidden(highlight_, false);
+    SetObjectHidden(eyelid_top_, false);
+    SetObjectHidden(eyelid_bottom_, false);
+    SetObjectHidden(eyebrow_, false);
+    SetObjectHidden(decor_, false);
+    SetObjectHidden(decor2_, false);
+    SetObjectHidden(gif_obj_, false);
+
+    lvgl_port_unlock();
 }
 
 bool EyeDisplay::Lock(int timeout_ms) {

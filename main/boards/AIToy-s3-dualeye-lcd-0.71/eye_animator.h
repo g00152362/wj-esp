@@ -19,6 +19,8 @@ public:
 
     void Init(EyeDisplay* left, EyeDisplay* right);
     void Start();
+    void Pause();
+    void Resume();
     void SetEmotion(const std::string& emotion);
     void SetState(EyeAnimState state);
 
@@ -36,6 +38,7 @@ private:
     std::string target_emotion_ = "neutral";
     EyeAnimState current_state_ = EyeAnimState::IDLE;
     EyeAnimState target_state_ = EyeAnimState::IDLE;
+    bool paused_ = false;
 
     struct EmotionParams {
         float eyelid_top = 0;

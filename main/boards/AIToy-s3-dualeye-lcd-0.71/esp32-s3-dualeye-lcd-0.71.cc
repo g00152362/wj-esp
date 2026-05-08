@@ -8,6 +8,7 @@
 #include "application.h"
 #include "button.h"
 #include "config.h"
+#include "font_awesome_symbols.h"
 
 #ifdef CONFIG_USE_BLE_DATA_SERVICE
 #include "ble_data_service.h"
@@ -174,6 +175,33 @@ private:
                 }
             );            
     }
+
+    void ShowNoNetworkPrompt() override
+    {
+        if (!gif_mode_) {
+            EyeAnimator::GetInstance().Pause();
+        }
+        if (left_eye_ != nullptr) {
+            left_eye_->ShowFullScreenIcon(FONT_AWESOME_WIFI_OFF);
+        }
+        if (right_eye_ != nullptr) {
+            right_eye_->ShowFullScreenIcon(FONT_AWESOME_WIFI_OFF);
+        }
+    }
+
+    void HideNoNetworkPrompt() override
+    {
+        if (left_eye_ != nullptr) {
+            left_eye_->HideFullScreenIcon();
+        }
+        if (right_eye_ != nullptr) {
+            right_eye_->HideFullScreenIcon();
+        }
+        if (!gif_mode_) {
+            EyeAnimator::GetInstance().Resume();
+        }
+    }
+
     void InitializeMotors()
     {
 

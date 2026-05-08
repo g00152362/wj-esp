@@ -14,6 +14,8 @@ protected:
     ProvisioningMode provisioning_mode_ = ProvisioningMode::WifiAp;
     void EnterProvisioningMode();
     void EnterWifiApProvisioningMode();
+    virtual void ShowNoNetworkPrompt();
+    virtual void HideNoNetworkPrompt();
     virtual std::string GetBoardJson() override;
 
 public:
