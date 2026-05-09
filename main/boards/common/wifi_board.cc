@@ -17,6 +17,12 @@
 #include <ssid_manager.h>
 #include "afsk_demod.h"
 
+#if CONFIG_USE_BLE_DATA_SERVICE
+#include "ble_data_service.h"
+#include <cJSON.h>
+#include <cstring>
+#endif
+
 static const char *TAG = "WifiBoard";
 
 WifiBoard::WifiBoard(ProvisioningMode provisioning_mode)
@@ -29,17 +35,33 @@ WifiBoard::WifiBoard(ProvisioningMode provisioning_mode)
     }
 }
 
-void WifiBoard::EnterProvisioningMode() {
-    switch (provisioning_mode_) {
-    case ProvisioningMode::WifiAp:
-    default:
-        EnterWifiApProvisioningMode();
-        break;
-    }
-}
-
 std::string WifiBoard::GetBoardType() {
     return "wifi";
+}
+
+void WifiBoard::EnterProvisioningMode() {
+    wifi_config_mode_ = true;
+    switch (provisioning_mode_) {
+    case ProvisioningMode::Ble:
+#if CONFIG_USE_BLE_DATA_SERVICE
+        EnterBleProvisioningMode();
+#else
+        {
+            auto& application = Application::GetInstance();
+            application.SetDeviceState(kDeviceStateWifiConfiguring);
+            ESP_LOGE(TAG, "BLE provisioning selected but CONFIG_USE_BLE_DATA_SERVICE is disabled");
+            while (true) {
+                vTaskDelay(pdMS_TO_TICKS(10000));
+            }
+        }
+#endif
+        return;
+    case ProvisioningMode::WifiAp:
+    default:
+        break;
+    }
+
+    EnterWifiApProvisioningMode();
 }
 
 void WifiBoard::EnterWifiApProvisioningMode() {
@@ -78,11 +100,133 @@ void WifiBoard::EnterWifiApProvisioningMode() {
     }
 }
 
-void WifiBoard::ShowNoNetworkPrompt() {
+#if CONFIG_USE_BLE_DATA_SERVICE
+namespace {
+constexpr size_t kMaxBleSsidLength = 32;
+constexpr size_t kMaxBlePasswordLength = 64;
 }
 
-void WifiBoard::HideNoNetworkPrompt() {
+bool WifiBoard::StartBleProvisioning() {
+    if (ble_provisioning_active_) {
+        return true;
+    }
+
+    auto& ble = BleDataService::GetInstance();
+    ble.SetOnReceive([this](const uint8_t* data, size_t len) {
+        HandleBleProvisioningData(data, len);
+    });
+    ble.SetOnConnect([](uint16_t conn_handle) {
+        ESP_LOGI(TAG, "BLE client connected, handle=%d", conn_handle);
+    });
+    ble.SetOnDisconnect([](uint16_t conn_handle, int reason) {
+        ESP_LOGI(TAG, "BLE client disconnected, handle=%d, reason=%d", conn_handle, reason);
+    });
+
+    esp_err_t ret = ble.Init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start BLE provisioning: %s", esp_err_to_name(ret));
+        return false;
+    }
+
+    ble_provisioning_active_ = true;
+    return true;
 }
+
+void WifiBoard::StopBleProvisioning() {
+    if (!ble_provisioning_active_) {
+        return;
+    }
+
+    BleDataService::GetInstance().Deinit();
+    ble_provisioning_active_ = false;
+}
+
+void WifiBoard::HandleBleProvisioningData(const uint8_t* data, size_t len) {
+    std::string json_str(reinterpret_cast<const char*>(data), len);
+    cJSON* root = cJSON_Parse(json_str.c_str());
+    if (!root) {
+        ESP_LOGW(TAG, "BLE provisioning payload is not valid JSON");
+        return;
+    }
+
+    cJSON* type = cJSON_GetObjectItem(root, "type");
+    if (!cJSON_IsString(type)) {
+        ESP_LOGW(TAG, "BLE provisioning payload is missing the type field");
+        cJSON_Delete(root);
+        return;
+    }
+
+    auto& ble = BleDataService::GetInstance();
+    if (strcmp(type->valuestring, "read") == 0) {
+        cJSON* resp = cJSON_CreateObject();
+        std::string mac = SystemInfo::GetMacAddress();
+        cJSON_AddStringToObject(resp, "macAddress", mac.c_str());
+        char* resp_str = cJSON_PrintUnformatted(resp);
+        if (resp_str != nullptr) {
+            ble.Notify(reinterpret_cast<const uint8_t*>(resp_str), strlen(resp_str));
+            cJSON_free(resp_str);
+        }
+        cJSON_Delete(resp);
+        cJSON_Delete(root);
+        return;
+    }
+
+    if (strcmp(type->valuestring, "write") == 0) {
+        cJSON* ssid = cJSON_GetObjectItem(root, "ssid");
+        cJSON* pwd = cJSON_GetObjectItem(root, "pwd");
+        if (!cJSON_IsString(ssid) || !cJSON_IsString(pwd)) {
+            ESP_LOGW(TAG, "BLE write is missing ssid or pwd");
+            cJSON_Delete(root);
+            return;
+        }
+
+        size_t ssid_len = strlen(ssid->valuestring);
+        size_t pwd_len = strlen(pwd->valuestring);
+        if (ssid_len == 0 || ssid_len > kMaxBleSsidLength || pwd_len > kMaxBlePasswordLength) {
+            ESP_LOGW(TAG, "BLE write contains an invalid ssid or password length");
+            cJSON_Delete(root);
+            return;
+        }
+
+        SsidManager::GetInstance().AddSsid(ssid->valuestring, pwd->valuestring);
+
+        cJSON* resp = cJSON_CreateObject();
+        cJSON_AddStringToObject(resp, "status", "ok");
+        char* resp_str = cJSON_PrintUnformatted(resp);
+        if (resp_str != nullptr) {
+            ble.Notify(reinterpret_cast<const uint8_t*>(resp_str), strlen(resp_str));
+            cJSON_free(resp_str);
+        }
+        cJSON_Delete(resp);
+        cJSON_Delete(root);
+
+        ESP_LOGI(TAG, "BLE provisioning saved WiFi credentials, rebooting in 1s");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+        return;
+    }
+
+    ESP_LOGW(TAG, "BLE provisioning received unsupported type: %s", type->valuestring);
+    cJSON_Delete(root);
+}
+
+void WifiBoard::EnterBleProvisioningMode() {
+    auto& application = Application::GetInstance();
+    application.SetDeviceState(kDeviceStateWifiConfiguring);
+    application.Alert(Lang::Strings::WIFI_CONFIG_MODE, "Use BLE to configure Wi-Fi", "",
+                      Lang::Sounds::OGG_WIFICONFIG);
+
+    StopBleProvisioning();
+    if (!StartBleProvisioning()) {
+        auto display = Board::GetInstance().GetDisplay();
+        display->ShowNotification("BLE provisioning failed", 30000);
+    }
+
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(10000));
+    }
+}
+#endif
 
 void WifiBoard::StartNetwork() {
     // User can press BOOT button while starting to enter WiFi configuration mode
@@ -120,33 +264,11 @@ void WifiBoard::StartNetwork() {
     });
     wifi_station.Start();
 
-    // Try to connect to WiFi, if timeout, prompt and keep retrying until connected
+    // Try to connect to WiFi, if failed, launch the WiFi configuration AP
     if (!wifi_station.WaitForConnected(60 * 1000)) {
-        ESP_LOGW(TAG, "WiFi connect timed out after 60 seconds");
-        ShowNoNetworkPrompt();
-
-        auto display = Board::GetInstance().GetDisplay();
-        auto& application = Application::GetInstance();
-        display->ShowNotification(Lang::Strings::NO_NETWORK, 30000);
-        application.PlaySound(Lang::Sounds::OGG_NO_NETWORK);
-
-        for (int attempt = 0; attempt < 3; ++attempt) {
-            ESP_LOGI(TAG, "Foreground Wi-Fi retry %d/3", attempt + 1);
-            if (wifi_station.WaitForConnected(30 * 1000)) {
-                HideNoNetworkPrompt();
-                display->ShowNotification(Lang::Strings::WIFI_CONNECTED, 3000);
-                application.PlaySound(Lang::Sounds::OGG_WIFI_CONNECTED);
-                return;
-            }
-        }
-
-        HideNoNetworkPrompt();
-        ESP_LOGW(TAG, "WiFi still disconnected; continue waiting in background");
-        while (!wifi_station.WaitForConnected(30 * 1000)) {
-        }
-
-        display->ShowNotification(Lang::Strings::WIFI_CONNECTED, 3000);
-        application.PlaySound(Lang::Sounds::OGG_WIFI_CONNECTED);
+        wifi_station.Stop();
+        wifi_config_mode_ = true;
+        EnterProvisioningMode();
         return;
     }
 }
@@ -197,14 +319,13 @@ void WifiBoard::SetPowerSaveMode(bool enabled) {
 }
 
 void WifiBoard::ResetWifiConfiguration() {
-    // Set a flag and reboot the device to enter the network configuration mode
+    // Set a flag and reboot the device to force provisioning on the next boot.
     {
         Settings settings("wifi", true);
         settings.SetInt("force_ap", 1);
     }
     GetDisplay()->ShowNotification(Lang::Strings::ENTERING_WIFI_CONFIG_MODE);
     vTaskDelay(pdMS_TO_TICKS(1000));
-    // Reboot the device
     esp_restart();
 }
 

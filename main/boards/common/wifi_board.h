@@ -14,8 +14,13 @@ protected:
     ProvisioningMode provisioning_mode_ = ProvisioningMode::WifiAp;
     void EnterProvisioningMode();
     void EnterWifiApProvisioningMode();
-    virtual void ShowNoNetworkPrompt();
-    virtual void HideNoNetworkPrompt();
+#if CONFIG_USE_BLE_DATA_SERVICE
+    bool ble_provisioning_active_ = false;
+    void EnterBleProvisioningMode();
+    bool StartBleProvisioning();
+    void StopBleProvisioning();
+    void HandleBleProvisioningData(const uint8_t* data, size_t len);
+#endif
     virtual std::string GetBoardJson() override;
 
 public:
@@ -31,3 +36,4 @@ public:
 };
 
 #endif // WIFI_BOARD_H
+
